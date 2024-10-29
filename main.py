@@ -64,6 +64,20 @@ difficulty_commission_map = {'hard': 1.2, 'medium': 1.0, 'easy': 0.8}
 feature_calls_df['expected_commission'] = feature_calls_df['difficulty'].map(difficulty_commission_map) * feature_calls_df['price']
 feature_calls_df['profit_discrepancy'] = feature_calls_df['commission'] - feature_calls_df['expected_commission']
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Setup Dash and Plotly Visualizations
 app = dash.Dash(__name__)
 
