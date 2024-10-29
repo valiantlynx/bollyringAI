@@ -107,7 +107,10 @@ app.layout = html.Div([
     dcc.Graph(id='location_vs_problem'),
     dcc.Graph(id='call_volume_time_series'),
     dcc.Graph(id='call_load_vs_performance'),
-    dcc.Graph(id='problem_type_vs_call_time')
+    dcc.Graph(id='problem_type_vs_call_time'),
+    dcc.Graph(id='commission_distribution'),
+    dcc.Graph(id='profit_discrepancy_by_problem'),
+    dcc.Graph(id='hourly_call_volume')
 ])
 
 @app.callback(
@@ -118,7 +121,10 @@ app.layout = html.Div([
         Output('location_vs_problem', 'figure'),
         Output('call_volume_time_series', 'figure'),
         Output('call_load_vs_performance', 'figure'),
-        Output('problem_type_vs_call_time', 'figure')
+        Output('problem_type_vs_call_time', 'figure'),
+        Output('commission_distribution', 'figure'),
+        Output('profit_discrepancy_by_problem', 'figure'),
+        Output('hourly_call_volume', 'figure')
     ],
     [Input('difficulty_dropdown', 'value'), Input('worker_dropdown', 'value')]
 )
@@ -145,16 +151,24 @@ def update_graphs(selected_difficulty, selected_worker):
         labels={'difficulty': 'Difficulty Level', 'profit_discrepancy': 'Average Profit Discrepancy'}
     )
     
-    # 3. Recommendation Score Distribution by Worker Salary
+    # Salary bins in increments of 1000 for finer distribution
+    # Salary bins and labels with 1000 increments
+    salary_bins = list(range(0, 31000, 1000))  # Bins up to 30000 in steps of 1000
+    salary_labels = [f'{i}-{i+1000}k' for i in range(0, 30000, 1000)]  # Generate labels up to 29000-30000k
+
+    # Create a new column in the merged DataFrame for salary ranges
     worker_recommendation = reports_df.merge(workers_df, left_on='worker_id', right_on='worker_id')
+    worker_recommendation['salary_range'] = pd.cut(worker_recommendation['base_salary'], bins=salary_bins, labels=salary_labels)
+
+    # Create the box plot with salary ranges on the x-axis
     fig3 = px.box(
         worker_recommendation,
-        x='base_salary',
+        x='salary_range',
         y='likely_to_recommend',
-        title='Likely to Recommend vs Worker Salary',
-        labels={'base_salary': 'Worker Salary', 'likely_to_recommend': 'Likely to Recommend'}
+        title='Likely to Recommend vs Worker Salary Range',
+        labels={'salary_range': 'Worker Salary Range', 'likely_to_recommend': 'Likely to Recommend'}
     )
-    
+
     # 4. Call Distribution by Location and Problem Type
     fig4 = px.histogram(
         feature_calls_df,
@@ -204,7 +218,39 @@ def update_graphs(selected_difficulty, selected_worker):
     else:
         fig7 = px.bar(title="No call time information available for Problem Type")
 
-    return fig1, fig2, fig3, fig4, fig5, fig6, fig7
+    # 8. Commission Distribution Across Difficulty Levels
+    fig8 = px.box(
+        feature_calls_df,
+        x='difficulty',
+        y='commission',
+        title='Commission Distribution by Difficulty Level',
+        labels={'difficulty': 'Difficulty Level', 'commission': 'Commission'}
+    )
+
+    # 9. Profit Discrepancy by Problem Type
+    fig9 = px.bar(
+        feature_calls_df.groupby('technical_problem')['profit_discrepancy'].mean().reset_index(),
+        x='technical_problem',
+        y='profit_discrepancy',
+        title='Average Profit Discrepancy by Problem Type',
+        labels={'technical_problem': 'Technical Problem', 'profit_discrepancy': 'Average Profit Discrepancy'}
+    )
+
+    # 10. Hourly Call Volume
+    if 'date' in feature_calls_df.columns:
+        feature_calls_df['hour'] = pd.to_datetime(feature_calls_df['date']).dt.hour
+        hourly_volume_df = feature_calls_df.groupby('hour').size().reset_index(name='call_volume')
+        fig10 = px.bar(
+            hourly_volume_df,
+            x='hour',
+            y='call_volume',
+            title='Hourly Call Volume',
+            labels={'hour': 'Hour of Day', 'call_volume': 'Call Volume'}
+        )
+    else:
+        fig10 = px.bar(title="No hourly information available for Call Volume")
+
+    return fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8, fig9, fig10
 
 # Run the Dash app
 if __name__ == '__main__':
