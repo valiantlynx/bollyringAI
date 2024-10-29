@@ -14,7 +14,4 @@ things we have to go by:
    - hard: 120%
    - medium: 100%
    - easy: 80%
-   - They are paid insanely high commisions maybe find a better business model
  - 
-
-for gpu access for uia students. username and pass for school: https://fe.uia.no/hub/spawn
