@@ -14,4 +14,5 @@ things we have to go by:
    - hard: 120%
    - medium: 100%
    - easy: 80%
+   - They are paid insanely high commisions maybe find a better business model
  - 
