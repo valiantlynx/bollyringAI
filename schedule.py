@@ -8,7 +8,7 @@ import os
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-CALL_LIMIT_PER_WORKER = 180
+CALL_LIMIT_PER_WORKER = 267
 
 # Load workers data and format correctly
 logging.info("Loading workers data and calculating recommendation scores...")
@@ -110,7 +110,7 @@ for file_path in glob.glob('extracted/feature_calls/*.json'):
 
     # Save the schedule in the required format
     output_schedule = {worker_id: calls for worker_id, calls in call_schedule.items()}
-    output_file = f'generated_schedule_{file_name}.json'
+    output_file = f'call_shedule_{file_name}.json'
     
     with open(output_file, 'w') as outfile:
         json.dump(output_schedule, outfile, indent=4)
