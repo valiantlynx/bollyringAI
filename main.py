@@ -93,7 +93,6 @@ app.layout = html.Div([
     ),
     
     # Pie charts for distribution insights
-    dcc.Graph(id='difficulty_distribution'),
     dcc.Graph(id='location_distribution'),
     
     # Graphs
@@ -114,7 +113,6 @@ app.layout = html.Div([
         Output('total_calls', 'children'),
         Output('total_workers', 'children'),
         Output('average_profit', 'children'),
-        Output('difficulty_distribution', 'figure'),
         Output('location_distribution', 'figure'),
         Output('profit_vs_call_time', 'figure'),
         Output('commission_vs_profitability', 'figure'),
@@ -135,12 +133,6 @@ def update_graphs(selected_difficulty, selected_worker):
     total_workers = f"Total Workers: {len(workers_df)}"
     average_profit = f"Average Profit per Call: ${reports_df['call_profit'].mean():.2f}"
     
-    # 1. Difficulty Level Distribution
-    fig_difficulty = px.pie(
-        feature_calls_df, 
-        names='difficulty', 
-        title='Call Distribution by Difficulty Level'
-    )
     
     # 2. Location Distribution of Calls
     fig_location = px.pie(
@@ -151,35 +143,40 @@ def update_graphs(selected_difficulty, selected_worker):
 
     # Profit vs Call Time for selected worker
     fig1 = px.scatter(
-        reports_df[reports_df['worker_id'] == selected_worker],
+        reports_df,
         x='call_time',
         y='call_profit',
         color='likely_to_recommend',
-        title=f'Call Profit vs Call Time for Worker {selected_worker}',
+        title=f'Call Profit vs Call Time',
         labels={'call_time': 'Call Time (minutes)', 'call_profit': 'Call Profit'}
     )
     
     # Commission vs Profitability by Difficulty
     fig2 = px.bar(
-        feature_calls_df.groupby('difficulty')['profit_discrepancy'].mean().reset_index(),
+        feature_calls_df.groupby('difficulty')['commission'].mean().reset_index(),
         x='difficulty',
-        y='profit_discrepancy',
-        title='Average Profit Discrepancy by Difficulty',
-        labels={'difficulty': 'Difficulty Level', 'profit_discrepancy': 'Average Profit Discrepancy'}
+        y='commission',
+        title='Average commission by Difficulty',
+        labels={'difficulty': 'Difficulty Level', 'commission': 'Average commission'}
     )
     
-    # Salary bins for recommendation vs salary range
-    salary_bins = list(range(0, 31000, 1000))
-    salary_labels = [f'{i}-{i+1000}k' for i in range(0, 30000, 1000)]
     worker_recommendation = reports_df.merge(workers_df, on='worker_id')
-    worker_recommendation['salary_range'] = pd.cut(worker_recommendation['base_salary'], bins=salary_bins, labels=salary_labels)
 
-    fig3 = px.box(
-        worker_recommendation,
-        x='salary_range',
+    unique_worker_recommendation_df = (
+        worker_recommendation.groupby('worker_id', as_index=False)
+        .agg({
+            'likely_to_recommend': 'mean',
+            'base_salary': 'first'  # Take the first salary range if consistent across entries
+        })
+    )
+    
+    fig3 = px.scatter(
+        unique_worker_recommendation_df,
+        x='base_salary',
         y='likely_to_recommend',
-        title='Likely to Recommend vs Worker Salary Range',
-        labels={'salary_range': 'Worker Salary Range', 'likely_to_recommend': 'Likely to Recommend'}
+        title='Likely to Recommend vs Worker base_salary',
+        labels={'base_salary': 'Worker base_salary', 'likely_to_recommend': 'Likely to Recommend'},
+        color='base_salary'  # Optional: color by salary range for visual distinction
     )
 
     # Call Distribution by Location and Problem Type
@@ -263,7 +260,7 @@ def update_graphs(selected_difficulty, selected_worker):
     else:
         fig10 = px.bar(title="No hourly information available for Call Volume")
 
-    return total_calls, total_workers, average_profit, fig_difficulty, fig_location, fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8, fig9, fig10
+    return total_calls, total_workers, average_profit, fig_location, fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8, fig9, fig10
 
 # Run the Dash app
 if __name__ == '__main__':
