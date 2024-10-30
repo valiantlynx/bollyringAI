@@ -5,6 +5,7 @@ import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
 import json
+import glob
 
 # Load workers data and format correctly
 workers_df = pd.read_json('extracted/workers.json').transpose().reset_index()
@@ -15,40 +16,37 @@ with open('prices.json') as f:
     prices_data = json.load(f)
 prices_df = pd.DataFrame(list(prices_data.items()), columns=['technical_problem', 'price'])
 
-# Load and flatten feature_calls.json
-with open('extracted/feature_calls/calls_11.json') as f:
-    feature_calls_data = json.load(f)
+# Function to load and flatten data from multiple JSON files in a directory
+def load_and_flatten_data(directory, key_field):
+    records = []
+    for file_path in glob.glob(f'{directory}/*.json'):
+        with open(file_path) as f:
+            data = json.load(f)
+        for location, calls in data.items():
+            for call_id, call_info in calls.items():
+                call_info['call_id'] = call_id
+                call_info['location'] = location
+                records.append(call_info)
+    return pd.DataFrame(records)
 
-# Flatten feature_calls_data
-feature_records = []
-for location, calls in feature_calls_data.items():
-    for call_id, call_info in calls.items():
-        call_info['call_id'] = call_id
-        call_info['location'] = location
-        feature_records.append(call_info)
-feature_calls_df = pd.DataFrame(feature_records)
+# Load feature calls, previous calls, previous reports, and schedules
+feature_calls_df = load_and_flatten_data('extracted/feature_calls', 'call_id')
+previous_calls_df = load_and_flatten_data('extracted/previous_calls', 'call_id')
 
-# Load and flatten previous_calls.json
-with open('extracted/previous_calls/calls_0.json') as f:
-    previous_calls_data = json.load(f)
-previous_records = []
-for location, calls in previous_calls_data.items():
-    for call_id, call_info in calls.items():
-        call_info['call_id'] = call_id
-        call_info['location'] = location
-        previous_records.append(call_info)
-previous_calls_df = pd.DataFrame(previous_records)
+# Load previous reports
+reports_records = []
+for file_path in glob.glob('extracted/previous_reports/*.json'):
+    reports_records.extend(pd.read_json(file_path).to_dict(orient='records'))
+reports_df = pd.DataFrame(reports_records)
 
-# Load reports data
-reports_df = pd.read_json('extracted/previous_reports/call_report_0.json')
-
-# Load and flatten schedules data
-with open('extracted/previous_schedules/call_shedule_0.json') as f:
-    schedules_data = json.load(f)
+# Load previous schedules
 schedule_records = []
-for worker_id, calls in schedules_data.items():
-    for call_id in calls:
-        schedule_records.append({'worker_id': worker_id, 'call_id': call_id})
+for file_path in glob.glob('extracted/previous_schedules/*.json'):
+    with open(file_path) as f:
+        schedules_data = json.load(f)
+    for worker_id, calls in schedules_data.items():
+        for call_id in calls:
+            schedule_records.append({'worker_id': worker_id, 'call_id': call_id})
 schedules_df = pd.DataFrame(schedule_records)
 
 # Combine prices with calls based on technical problems
@@ -57,32 +55,26 @@ previous_calls_df = previous_calls_df.merge(prices_df, on='technical_problem', h
 
 # Ensure call_time is available by adding a dummy column if missing
 if 'call_time' not in feature_calls_df.columns:
-    feature_calls_df['call_time'] = np.nan  # Or set this with actual values if available
+    feature_calls_df['call_time'] = np.nan
 
 # Calculate Expected Commission and Profit Discrepancy
 difficulty_commission_map = {'hard': 1.2, 'medium': 1.0, 'easy': 0.8}
 feature_calls_df['expected_commission'] = feature_calls_df['difficulty'].map(difficulty_commission_map) * feature_calls_df['price']
 feature_calls_df['profit_discrepancy'] = feature_calls_df['commission'] - feature_calls_df['expected_commission']
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Setup Dash and Plotly Visualizations
 app = dash.Dash(__name__)
 
 app.layout = html.Div([
     html.H1("BollyringAI Call Schedule Insights"),
+    
+    # Summary metrics section
+    html.Div([
+        html.H3("Summary Metrics"),
+        html.P(id='total_calls'),
+        html.P(id='total_workers'),
+        html.P(id='average_profit')
+    ], style={'margin-bottom': '20px'}),
     
     # Dropdown for choosing difficulty levels
     html.Label("Select Difficulty Level:"),
@@ -100,6 +92,10 @@ app.layout = html.Div([
         value=workers_df['worker_id'][0]
     ),
     
+    # Pie charts for distribution insights
+    dcc.Graph(id='difficulty_distribution'),
+    dcc.Graph(id='location_distribution'),
+    
     # Graphs
     dcc.Graph(id='profit_vs_call_time'),
     dcc.Graph(id='commission_vs_profitability'),
@@ -115,6 +111,11 @@ app.layout = html.Div([
 
 @app.callback(
     [
+        Output('total_calls', 'children'),
+        Output('total_workers', 'children'),
+        Output('average_profit', 'children'),
+        Output('difficulty_distribution', 'figure'),
+        Output('location_distribution', 'figure'),
         Output('profit_vs_call_time', 'figure'),
         Output('commission_vs_profitability', 'figure'),
         Output('recommendation_vs_salary', 'figure'),
@@ -129,10 +130,26 @@ app.layout = html.Div([
     [Input('difficulty_dropdown', 'value'), Input('worker_dropdown', 'value')]
 )
 def update_graphs(selected_difficulty, selected_worker):
-    # Filter data based on difficulty level
-    filtered_df = feature_calls_df[feature_calls_df['difficulty'] == selected_difficulty]
+    # Summary Metrics
+    total_calls = f"Total Calls: {len(feature_calls_df)}"
+    total_workers = f"Total Workers: {len(workers_df)}"
+    average_profit = f"Average Profit per Call: ${reports_df['call_profit'].mean():.2f}"
     
-    # 1. Profit vs Call Time for selected worker
+    # 1. Difficulty Level Distribution
+    fig_difficulty = px.pie(
+        feature_calls_df, 
+        names='difficulty', 
+        title='Call Distribution by Difficulty Level'
+    )
+    
+    # 2. Location Distribution of Calls
+    fig_location = px.pie(
+        feature_calls_df, 
+        names='location', 
+        title='Call Distribution by Location'
+    )
+
+    # Profit vs Call Time for selected worker
     fig1 = px.scatter(
         reports_df[reports_df['worker_id'] == selected_worker],
         x='call_time',
@@ -142,7 +159,7 @@ def update_graphs(selected_difficulty, selected_worker):
         labels={'call_time': 'Call Time (minutes)', 'call_profit': 'Call Profit'}
     )
     
-    # 2. Commission vs Profitability by Difficulty
+    # Commission vs Profitability by Difficulty
     fig2 = px.bar(
         feature_calls_df.groupby('difficulty')['profit_discrepancy'].mean().reset_index(),
         x='difficulty',
@@ -151,16 +168,12 @@ def update_graphs(selected_difficulty, selected_worker):
         labels={'difficulty': 'Difficulty Level', 'profit_discrepancy': 'Average Profit Discrepancy'}
     )
     
-    # Salary bins in increments of 1000 for finer distribution
-    # Salary bins and labels with 1000 increments
-    salary_bins = list(range(0, 31000, 1000))  # Bins up to 30000 in steps of 1000
-    salary_labels = [f'{i}-{i+1000}k' for i in range(0, 30000, 1000)]  # Generate labels up to 29000-30000k
-
-    # Create a new column in the merged DataFrame for salary ranges
-    worker_recommendation = reports_df.merge(workers_df, left_on='worker_id', right_on='worker_id')
+    # Salary bins for recommendation vs salary range
+    salary_bins = list(range(0, 31000, 1000))
+    salary_labels = [f'{i}-{i+1000}k' for i in range(0, 30000, 1000)]
+    worker_recommendation = reports_df.merge(workers_df, on='worker_id')
     worker_recommendation['salary_range'] = pd.cut(worker_recommendation['base_salary'], bins=salary_bins, labels=salary_labels)
 
-    # Create the box plot with salary ranges on the x-axis
     fig3 = px.box(
         worker_recommendation,
         x='salary_range',
@@ -169,7 +182,7 @@ def update_graphs(selected_difficulty, selected_worker):
         labels={'salary_range': 'Worker Salary Range', 'likely_to_recommend': 'Likely to Recommend'}
     )
 
-    # 4. Call Distribution by Location and Problem Type
+    # Call Distribution by Location and Problem Type
     fig4 = px.histogram(
         feature_calls_df,
         x='location',
@@ -179,7 +192,7 @@ def update_graphs(selected_difficulty, selected_worker):
         barmode='stack'
     )
     
-    # 5. Time Series of Call Volume
+    # Time Series of Call Volume
     if 'date' in feature_calls_df.columns:
         call_volume_df = feature_calls_df.groupby('date').size().reset_index(name='call_volume')
         fig5 = px.line(
@@ -192,7 +205,7 @@ def update_graphs(selected_difficulty, selected_worker):
     else:
         fig5 = px.line(title="No date information available for Call Volume")
 
-    # 6. Worker Call Load vs Performance
+    # Worker Call Load vs Performance
     worker_performance = reports_df.groupby('worker_id').agg(
         call_count=('call_id', 'count'),
         avg_profit=('call_profit', 'mean')
@@ -205,7 +218,7 @@ def update_graphs(selected_difficulty, selected_worker):
         labels={'call_count': 'Number of Calls', 'avg_profit': 'Average Profit per Call'}
     )
     
-    # 7. Problem Type vs Average Call Time
+    # Problem Type vs Average Call Time
     if 'call_time' in feature_calls_df.columns:
         avg_call_time = feature_calls_df.groupby('technical_problem')['call_time'].mean().reset_index()
         fig7 = px.bar(
@@ -218,7 +231,7 @@ def update_graphs(selected_difficulty, selected_worker):
     else:
         fig7 = px.bar(title="No call time information available for Problem Type")
 
-    # 8. Commission Distribution Across Difficulty Levels
+    # Commission Distribution Across Difficulty Levels
     fig8 = px.box(
         feature_calls_df,
         x='difficulty',
@@ -227,7 +240,7 @@ def update_graphs(selected_difficulty, selected_worker):
         labels={'difficulty': 'Difficulty Level', 'commission': 'Commission'}
     )
 
-    # 9. Profit Discrepancy by Problem Type
+    # Profit Discrepancy by Problem Type
     fig9 = px.bar(
         feature_calls_df.groupby('technical_problem')['profit_discrepancy'].mean().reset_index(),
         x='technical_problem',
@@ -236,7 +249,7 @@ def update_graphs(selected_difficulty, selected_worker):
         labels={'technical_problem': 'Technical Problem', 'profit_discrepancy': 'Average Profit Discrepancy'}
     )
 
-    # 10. Hourly Call Volume
+    # Hourly Call Volume
     if 'date' in feature_calls_df.columns:
         feature_calls_df['hour'] = pd.to_datetime(feature_calls_df['date']).dt.hour
         hourly_volume_df = feature_calls_df.groupby('hour').size().reset_index(name='call_volume')
@@ -250,7 +263,7 @@ def update_graphs(selected_difficulty, selected_worker):
     else:
         fig10 = px.bar(title="No hourly information available for Call Volume")
 
-    return fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8, fig9, fig10
+    return total_calls, total_workers, average_profit, fig_difficulty, fig_location, fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8, fig9, fig10
 
 # Run the Dash app
 if __name__ == '__main__':
