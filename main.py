@@ -191,6 +191,9 @@ def update_graphs(selected_difficulty, selected_worker):
     
     # Time Series of Call Volume
     if 'date' in feature_calls_df.columns:
+        feature_calls_df['date'] = pd.to_datetime(feature_calls_df['date']).dt.date
+
+        # Group by 'date' (now containing only date component) and count call volume
         call_volume_df = feature_calls_df.groupby('date').size().reset_index(name='call_volume')
         fig5 = px.line(
             call_volume_df,
