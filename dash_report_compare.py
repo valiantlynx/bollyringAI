@@ -40,39 +40,43 @@ for file_path in glob.glob('ikkeheltimal_call_reports_11_20/future_call_reports/
     new_reports.extend(pd.read_json(file_path).to_dict(orient='records'))
 new_reports_df = pd.DataFrame(new_reports)
 
+# Merge reports with location data for city analysis
+previous_reports_df = previous_reports_df.merge(load_and_flatten_data('extracted/previous_calls'), on='call_id', how='left')
+new_reports_df = new_reports_df.merge(load_and_flatten_data('extracted/feature_calls'), on='call_id', how='left')
+
+# Calculate Sum Profits by city
+city_profit_comparison = pd.DataFrame({
+    "City": previous_reports_df["location"].unique(),
+    "Previous Sum Profit": previous_reports_df.groupby("location")["call_profit"].sum().values,
+    "New Sum Profit": new_reports_df.groupby("location")["call_profit"].sum().values
+})
+
 # Calculate key performance metrics
 def calculate_metrics(report_df):
     return {
         "Sum Profit": report_df['call_profit'].sum(),
         "Average Call Time": report_df['call_time'].mean(),
-        "Average Recommendation": report_df['likely_to_recommend'].mean(),
-        "Mumbai Profits": ,
+        "Average Recommendation": report_df['likely_to_recommend'].mean()
     }
 
 # Calculate metrics for previous and new reports
 previous_metrics = calculate_metrics(previous_reports_df)
 new_metrics = calculate_metrics(new_reports_df)
 
-# Calculate percentage changes
-comparison = {
-    "Metric": ["Average Profit", "Average Call Time", "Average Recommendation"],
-    "Previous": [previous_metrics["Average Profit"], previous_metrics["Average Call Time"], previous_metrics["Average Recommendation"]],
-    "New": [new_metrics["Average Profit"], new_metrics["Average Call Time"], new_metrics["Average Recommendation"]],
+# Create a DataFrame for overall comparison
+comparison_df = pd.DataFrame({
+    "Metric": ["Sum Profit", "Average Call Time", "Average Recommendation"],
+    "Previous": [previous_metrics["Sum Profit"], previous_metrics["Average Call Time"], previous_metrics["Average Recommendation"]],
+    "New": [new_metrics["Sum Profit"], new_metrics["Average Call Time"], new_metrics["Average Recommendation"]],
     "Change (%)": [
-        (new_metrics["Average Profit"] - previous_metrics["Average Profit"]) / previous_metrics["Average Profit"] * 100 if previous_metrics["Average Profit"] else None,
+        (new_metrics["Sum Profit"] - previous_metrics["Sum Profit"]) / previous_metrics["Sum Profit"] * 100 if previous_metrics["Sum Profit"] else None,
         (new_metrics["Average Call Time"] - previous_metrics["Average Call Time"]) / previous_metrics["Average Call Time"] * 100 if previous_metrics["Average Call Time"] else None,
         (new_metrics["Average Recommendation"] - previous_metrics["Average Recommendation"]) / previous_metrics["Average Recommendation"] * 100 if previous_metrics["Average Recommendation"] else None
     ]
-}
-
-# Create a DataFrame for comparison
-comparison_df = pd.DataFrame(comparison)
+})
 
 # Setup Dash and Plotly Visualizations
 app = dash.Dash(__name__)
-
-# Set callback exceptions to be suppressed
-app.config.suppress_callback_exceptions = True
 
 app.layout = html.Div([
     html.H1("Comparison of Previous and New Reports"),
@@ -84,7 +88,7 @@ app.layout = html.Div([
             id='comparison_table',
             columns=[{"name": i, "id": i} for i in comparison_df.columns],
             data=comparison_df.to_dict('records'),
-            style_table={'width': '80%'}
+            style_table={'width': '40%'}
         )
     ], style={'margin-bottom': '20px'}),
     
@@ -93,6 +97,12 @@ app.layout = html.Div([
         dcc.Graph(id='profit_comparison'),
         dcc.Graph(id='call_time_comparison'),
         dcc.Graph(id='recommendation_comparison')
+    ]),
+    
+    # City-level profit comparison plot
+    html.Div([
+        html.H3("Sum Profit by City"),
+        dcc.Graph(id='city_profit_comparison')
     ])
 ])
 
@@ -101,18 +111,19 @@ app.layout = html.Div([
     [
         Output('profit_comparison', 'figure'),
         Output('call_time_comparison', 'figure'),
-        Output('recommendation_comparison', 'figure')
+        Output('recommendation_comparison', 'figure'),
+        Output('city_profit_comparison', 'figure')
     ],
     [Input('comparison_table', 'data')]
 )
 def update_comparison_graphs(data):
     # Profit Comparison
     fig_profit = px.bar(
-        comparison_df[comparison_df["Metric"] == "Average Profit"],
+        comparison_df[comparison_df["Metric"] == "Sum Profit"],
         x="Metric",
         y=["Previous", "New"],
         barmode='group',
-        title="Average Profit Comparison"
+        title="Sum Profit Comparison"
     )
     
     # Call Time Comparison
@@ -132,8 +143,17 @@ def update_comparison_graphs(data):
         barmode='group',
         title="Average Recommendation Comparison"
     )
-    
-    return fig_profit, fig_call_time, fig_recommendation
+
+    # City Profit Comparison
+    fig_city_profit = px.bar(
+        city_profit_comparison,
+        x="City",
+        y=["Previous Sum Profit", "New Sum Profit"],
+        barmode='group',
+        title="Sum Profit by City"
+    )
+
+    return fig_profit, fig_call_time, fig_recommendation, fig_city_profit
 
 # Run the Dash app
 if __name__ == '__main__':
