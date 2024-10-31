@@ -1,0 +1,26 @@
+Format folder structure:
+
+
+call_schedules_week_<week number>.zip
+	/call_schedule_<call_schedule_number>.json
+	.
+	.
+	.
+	.
+
+
+Format call_schedule_<call_schedule_number>.json:
+
+{
+	<worker_id> : 
+		{
+			<call_id>
+			.
+			.
+			.
+		}
+	
+	.
+	.
+	.
+}
