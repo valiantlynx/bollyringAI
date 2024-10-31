@@ -31,3 +31,5 @@ things we have to go by:
    - use hard, medium and easy
  - else 
    - use just easy
+  
+we got our results reports and format structure

@@ -104,8 +104,6 @@ app.layout = html.Div([
     dcc.Graph(id='call_load_vs_performance'),
     dcc.Graph(id='problem_type_vs_call_time'),
     dcc.Graph(id='commission_distribution'),
-    dcc.Graph(id='profit_discrepancy_by_problem'),
-    dcc.Graph(id='hourly_call_volume')
 ])
 
 @app.callback(
@@ -122,8 +120,6 @@ app.layout = html.Div([
         Output('call_load_vs_performance', 'figure'),
         Output('problem_type_vs_call_time', 'figure'),
         Output('commission_distribution', 'figure'),
-        Output('profit_discrepancy_by_problem', 'figure'),
-        Output('hourly_call_volume', 'figure')
     ],
     [Input('difficulty_dropdown', 'value'), Input('worker_dropdown', 'value')]
 )
@@ -240,30 +236,7 @@ def update_graphs(selected_difficulty, selected_worker):
         labels={'difficulty': 'Difficulty Level', 'commission': 'Commission'}
     )
 
-    # Profit Discrepancy by Problem Type
-    fig9 = px.bar(
-        feature_calls_df.groupby('technical_problem')['profit_discrepancy'].mean().reset_index(),
-        x='technical_problem',
-        y='profit_discrepancy',
-        title='Average Profit Discrepancy by Problem Type',
-        labels={'technical_problem': 'Technical Problem', 'profit_discrepancy': 'Average Profit Discrepancy'}
-    )
-
-    # Hourly Call Volume
-    if 'date' in feature_calls_df.columns:
-        feature_calls_df['hour'] = pd.to_datetime(feature_calls_df['date']).dt.hour
-        hourly_volume_df = feature_calls_df.groupby('hour').size().reset_index(name='call_volume')
-        fig10 = px.bar(
-            hourly_volume_df,
-            x='hour',
-            y='call_volume',
-            title='Hourly Call Volume',
-            labels={'hour': 'Hour of Day', 'call_volume': 'Call Volume'}
-        )
-    else:
-        fig10 = px.bar(title="No hourly information available for Call Volume")
-
-    return total_calls, total_workers, average_profit, fig_location, fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8, fig9, fig10
+    return total_calls, total_workers, average_profit, fig_location, fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8
 
 # Run the Dash app
 if __name__ == '__main__':
