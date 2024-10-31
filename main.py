@@ -159,20 +159,22 @@ def update_graphs(selected_difficulty, selected_worker):
     worker_recommendation = reports_df.merge(workers_df, on='worker_id')
 
     unique_worker_recommendation_df = (
-        worker_recommendation.groupby('worker_id', as_index=False)
-        .agg({
-            'likely_to_recommend': 'mean',
-            'base_salary': 'first'  # Take the first salary range if consistent across entries
-        })
+        worker_recommendation.groupby('worker_id')
+        .agg(
+            call_count=('call_id', 'count'),
+            likely_to_recommend=('likely_to_recommend', 'mean')
+            )
     )
-    
+    worker_performance = schedules_df.groupby('worker_id').agg(
+        call_count=('call_id', 'count')
+    ).reset_index()
+
     fig3 = px.scatter(
         unique_worker_recommendation_df,
-        x='base_salary',
+        x='call_count',
         y='likely_to_recommend',
-        title='Likely to Recommend vs Worker base_salary',
-        labels={'base_salary': 'Worker base_salary', 'likely_to_recommend': 'Likely to Recommend'},
-        color='base_salary'  # Optional: color by salary range for visual distinction
+        title='Likely to Recommend vs call count',
+        labels={'call_count': 'call count', 'likely_to_recommend': 'Likely to Recommend'}
     )
 
     # Call Distribution by Location and Problem Type

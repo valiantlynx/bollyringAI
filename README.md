@@ -33,3 +33,11 @@ things we have to go by:
    - use just easy
   
 we got our results reports and format structure
+
+### analasis results
+There was a technical error on our algorithm: it did not take account for that  tge 
+if randomly make the reports to be the same size before comparing (to get insight). 
+
+
+### for next time
+compare the call scheduleto the call report and see how many a worker might have completed the call in the report vs the call that was scheduled. then we could give them more data
