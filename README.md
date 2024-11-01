@@ -41,3 +41,6 @@ if randomly make the reports to be the same size before comparing (to get insigh
 
 ### for next time
 compare the call schedule to the call report and see how many a worker might have completed,  the call in the report vs the call that was scheduled. then we could give them more calls
+
+
+## Round 2 - Fight
