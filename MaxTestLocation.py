@@ -83,7 +83,7 @@ def check_call_assignments(schedule_file, calls_file, worker_locations, output_f
 # Define paths to your JSON files
 call_reports_path = 'call_reports'  # e.g., 'extracted/previous_reports'
 calls_path = 'calls'  # e.g., 'extracted/previous_calls'
-schedule_file = 'call_schedule_new/call_schedule_22.json'  # e.g., 'extracted/new_schedule.json'
+schedule_file = 'call_schedule_Uke2/call_schedule_22.json'  # e.g., 'extracted/new_schedule.json'
 calls_file = 'Calls_new/calls_22.json'  # e.g., 'extracted/future_calls/calls_11.json'
 output_file = 'output_results.txt'  # Path for the output file
 
