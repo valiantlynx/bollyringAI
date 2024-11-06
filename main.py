@@ -8,11 +8,11 @@ import json
 import glob
 
 # Load workers data and format correctly
-workers_df = pd.read_json('extracted/workers.json').transpose().reset_index()
+workers_df = pd.read_json('Schedule1/extracted/workers.json').transpose().reset_index()
 workers_df.columns = ['worker_id', 'name', 'base_salary']
 
 # Load prices.json as a dictionary and convert to DataFrame
-with open('prices.json') as f:
+with open('Schedule1/prices.json') as f:
     prices_data = json.load(f)
 prices_df = pd.DataFrame(list(prices_data.items()), columns=['technical_problem', 'price'])
 
@@ -30,29 +30,28 @@ def load_and_flatten_data(directory, key_field):
     return pd.DataFrame(records)
 
 # Load feature calls, previous calls, previous reports, and schedules
-feature_calls_df = load_and_flatten_data('extracted/feature_calls', 'call_id')
-previous_calls_df = load_and_flatten_data('extracted/previous_calls', 'call_id')
+feature_calls_df = load_and_flatten_data('ikkeimal_calls/calls', 'call_id')
+previous_calls_df = load_and_flatten_data('Schedule1/extracted/feature_calls', 'call_id')
 
 # Load previous reports
 reports_records = []
-for file_path in glob.glob('extracted/previous_reports/*.json'):
+for file_path in glob.glob('Schedule1/ikkeheltimal_call_reports_11_20/future_call_reports/*.json'):
     reports_records.extend(pd.read_json(file_path).to_dict(orient='records'))
 reports_df = pd.DataFrame(reports_records)
 
 # Load previous schedules
 schedule_records = []
-for file_path in glob.glob('extracted/previous_schedules/*.json'):
+for file_path in glob.glob('Schedule1/extracted/feature_schedules/*.json'):
     with open(file_path) as f:
         schedules_data = json.load(f)
     for worker_id, calls in schedules_data.items():
         for call_id in calls:
             schedule_records.append({'worker_id': worker_id, 'call_id': call_id})
 schedules_df = pd.DataFrame(schedule_records)
-
 # Combine prices with calls based on technical problems
 feature_calls_df = feature_calls_df.merge(prices_df, on='technical_problem', how='left')
 previous_calls_df = previous_calls_df.merge(prices_df, on='technical_problem', how='left')
-
+print(feature_calls_df.columns)
 # Ensure call_time is available by adding a dummy column if missing
 if 'call_time' not in feature_calls_df.columns:
     feature_calls_df['call_time'] = np.nan
@@ -165,6 +164,7 @@ def update_graphs(selected_difficulty, selected_worker):
             likely_to_recommend=('likely_to_recommend', 'mean')
             )
     )
+    
     worker_performance = schedules_df.groupby('worker_id').agg(
         call_count=('call_id', 'count')
     ).reset_index()
@@ -219,6 +219,7 @@ def update_graphs(selected_difficulty, selected_worker):
     # Problem Type vs Average Call Time
     if 'call_time' in feature_calls_df.columns:
         avg_call_time = feature_calls_df.groupby('technical_problem')['call_time'].mean().reset_index()
+        print(feature_calls_df['call_time'].head())
         fig7 = px.bar(
             avg_call_time,
             x='technical_problem',
