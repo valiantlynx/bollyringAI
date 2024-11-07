@@ -10,12 +10,15 @@ import json
 import glob
 import numpy as np
 
+# Initialize the Dash app
+app = dash.Dash(__name__)
+
 # Load workers data
 workers_df = pd.read_json('extracted/workers.json').transpose().reset_index()
 workers_df.columns = ['worker_id', 'name', 'base_salary']
 
 # Load prices.json as a dictionary and convert to DataFrame
-with open('prices.json') as f:
+with open('Week1/prices.json') as f:
     prices_data = json.load(f)
 prices_df = pd.DataFrame(list(prices_data.items()), columns=['technical_problem', 'price'])
 
@@ -39,16 +42,35 @@ for file_path in glob.glob('extracted/previous_reports/*.json'):
 previous_reports_df = pd.DataFrame(previous_reports)
 
 new_reports = []
-for file_path in glob.glob('ikkeheltimal_call_reports_11_20/future_call_reports/*.json'):
+for file_path in glob.glob('Week2/call_report_week2/*.json'):
     new_reports.extend(pd.read_json(file_path).to_dict(orient='records'))
 new_reports_df = pd.DataFrame(new_reports)
 
 # Merge reports with location data for city analysis
 previous_reports_df = previous_reports_df.merge(load_and_flatten_data('extracted/previous_calls'), on='call_id', how='left')
-new_reports_df = new_reports_df.merge(load_and_flatten_data('extracted/feature_calls'), on='call_id', how='left')
+new_reports_df = new_reports_df.merge(load_and_flatten_data('Week2/calls'), on='call_id', how='left')
 
 # Randomly limit the previous reports to match the size of new reports
 limited_previous_reports_df = previous_reports_df.sample(n=len(new_reports_df), random_state=42)
+
+# Merge the price data to calculate call profits based on 'technical_problem'
+previous_reports_df = previous_reports_df.merge(prices_df, on='technical_problem', how='left')
+new_reports_df = new_reports_df.merge(prices_df, on='technical_problem', how='left')
+
+# Calculate profit for each call (assuming 'call_profit' = 'price' * 'call_time')
+previous_reports_df['call_profit'] = previous_reports_df['price'] * previous_reports_df['call_time']
+new_reports_df['call_profit'] = new_reports_df['price'] * new_reports_df['call_time']
+
+# Calculate total profit and call count by city
+city_profit_and_count_previous = previous_reports_df.groupby('location').agg(
+    total_profit=('call_profit', 'sum'),
+    call_count=('call_id', 'count')
+).reset_index()
+
+city_profit_and_count_new = new_reports_df.groupby('location').agg(
+    total_profit=('call_profit', 'sum'),
+    call_count=('call_id', 'count')
+).reset_index()
 
 # Calculate metrics
 def calculate_metrics(report_df):
@@ -86,22 +108,11 @@ limited_comparison_df = pd.DataFrame({
     ]
 })
 
-# Sum Profits and Call Counts by City for both comparisons
-city_profit_and_count_comparison = pd.DataFrame({
-    "City": previous_reports_df["location"].unique(),
-    "Previous Sum Profit": previous_reports_df.groupby("location")["call_profit"].sum().values,
-    "New Sum Profit": new_reports_df.groupby("location")["call_profit"].sum().values,
-    "Previous Call Count": previous_reports_df.groupby("location").size().values,
-    "New Call Count": new_reports_df.groupby("location").size().values
-})
-
-limited_city_profit_and_count_comparison = pd.DataFrame({
-    "City": limited_previous_reports_df["location"].unique(),
-    "Limited Previous Sum Profit": limited_previous_reports_df.groupby("location")["call_profit"].sum().values,
-    "New Sum Profit": new_reports_df.groupby("location")["call_profit"].sum().values,
-    "Limited Previous Call Count": limited_previous_reports_df.groupby("location").size().values,
-    "New Call Count": new_reports_df.groupby("location").size().values
-})
+# Print city profit and call counts for verification
+print("City Profits and Call Counts - Previous:")
+print(city_profit_and_count_previous)
+print("\nCity Profits and Call Counts - New:")
+print(city_profit_and_count_new)
 
 # Setup Dash and Plotly Visualizations
 app = dash.Dash(__name__)
@@ -136,6 +147,7 @@ app.layout = html.Div([
             style_table={'width': '40%'}
         )
     ], style={'margin-bottom': '20px'}),
+    
     
     # Comparison Plots
     html.Div([

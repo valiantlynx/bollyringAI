@@ -1,4 +1,0 @@
-Good Workers:
-
-"worker_id": "w_f5400776-c6cc-4563-b835-b5ee56242aa1",
-

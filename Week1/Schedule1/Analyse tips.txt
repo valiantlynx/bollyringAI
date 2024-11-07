@@ -1,5 +1,0 @@
-Technical probelms med call_time,og call_profit.
-
-Likely to recommend med workerID.
-
-call_profit og call_time med hver workerID
