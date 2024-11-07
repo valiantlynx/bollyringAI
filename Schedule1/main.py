@@ -8,7 +8,7 @@ import json
 import glob
 
 # Load workers data and format correctly
-workers_df = pd.read_json('extracted/workers.json').transpose().reset_index()
+workers_df = pd.read_json('../extracted/workers.json').transpose().reset_index()
 workers_df.columns = ['worker_id', 'name', 'base_salary']
 
 # Load prices.json as a dictionary and convert to DataFrame
