@@ -10,9 +10,6 @@ import json
 import glob
 import numpy as np
 
-# Initialize the Dash app
-app = dash.Dash(__name__)
-
 # Load workers data
 workers_df = pd.read_json('extracted/workers.json').transpose().reset_index()
 workers_df.columns = ['worker_id', 'name', 'base_salary']
@@ -42,35 +39,16 @@ for file_path in glob.glob('extracted/previous_reports/*.json'):
 previous_reports_df = pd.DataFrame(previous_reports)
 
 new_reports = []
-for file_path in glob.glob('Week2/call_report_week2/*.json'):
+for file_path in glob.glob('Week2\call_report_week2/*.json'):
     new_reports.extend(pd.read_json(file_path).to_dict(orient='records'))
 new_reports_df = pd.DataFrame(new_reports)
 
 # Merge reports with location data for city analysis
 previous_reports_df = previous_reports_df.merge(load_and_flatten_data('extracted/previous_calls'), on='call_id', how='left')
-new_reports_df = new_reports_df.merge(load_and_flatten_data('Week2/calls'), on='call_id', how='left')
+new_reports_df = new_reports_df.merge(load_and_flatten_data('Week2\calls'), on='call_id', how='left')
 
 # Randomly limit the previous reports to match the size of new reports
 limited_previous_reports_df = previous_reports_df.sample(n=len(new_reports_df), random_state=42)
-
-# Merge the price data to calculate call profits based on 'technical_problem'
-previous_reports_df = previous_reports_df.merge(prices_df, on='technical_problem', how='left')
-new_reports_df = new_reports_df.merge(prices_df, on='technical_problem', how='left')
-
-# Calculate profit for each call (assuming 'call_profit' = 'price' * 'call_time')
-previous_reports_df['call_profit'] = previous_reports_df['price'] * previous_reports_df['call_time']
-new_reports_df['call_profit'] = new_reports_df['price'] * new_reports_df['call_time']
-
-# Calculate total profit and call count by city
-city_profit_and_count_previous = previous_reports_df.groupby('location').agg(
-    total_profit=('call_profit', 'sum'),
-    call_count=('call_id', 'count')
-).reset_index()
-
-city_profit_and_count_new = new_reports_df.groupby('location').agg(
-    total_profit=('call_profit', 'sum'),
-    call_count=('call_id', 'count')
-).reset_index()
 
 # Calculate metrics
 def calculate_metrics(report_df):
@@ -84,6 +62,24 @@ def calculate_metrics(report_df):
 previous_metrics = calculate_metrics(previous_reports_df)
 new_metrics = calculate_metrics(new_reports_df)
 limited_previous_metrics = calculate_metrics(limited_previous_reports_df)
+
+city_profit_and_count_previous = previous_reports_df.groupby('location').agg(
+    total_profit=('call_profit', 'sum'),
+    call_time=('call_time', 'sum'),
+    call_count=('call_id', 'count'),
+    call_recommendation=('likely_to_recommend', 'mean'),
+)
+city_profit_and_count_new = new_reports_df.groupby('location').agg(
+    total_profit=('call_profit', 'sum'),
+    call_count=('call_id', 'count')
+)
+print# Print city profit and call counts for verification
+print("City Profits and Call Counts - Previous:")
+print(city_profit_and_count_previous)
+print(previous_metrics)
+print("\nCity Profits and Call Counts - New:")
+print(city_profit_and_count_new)
+print(new_metrics)
 
 # Comparison DataFrames
 comparison_df = pd.DataFrame({
@@ -108,12 +104,48 @@ limited_comparison_df = pd.DataFrame({
     ]
 })
 
-# Print city profit and call counts for verification
-print("City Profits and Call Counts - Previous:")
-print(city_profit_and_count_previous)
-print("\nCity Profits and Call Counts - New:")
-print(city_profit_and_count_new)
+# Ensure consistent indexing for previous and new data
+previous_city_stats = previous_reports_df.groupby("location").agg(
+    Previous_Sum_Profit=("call_profit", "sum"),
+    Previous_Call_Count=("call_id", "size")
+)
 
+new_city_stats = new_reports_df.groupby("location").agg(
+    New_Sum_Profit=("call_profit", "sum"),
+    New_Call_Count=("call_id", "size")
+)
+
+# Align previous and new data on location (city) to create the comparison DataFrame
+city_profit_and_count_comparison = pd.DataFrame({
+    "City": previous_city_stats.index.union(new_city_stats.index),
+    "Previous Sum Profit": previous_city_stats["Previous_Sum_Profit"].reindex(previous_city_stats.index.union(new_city_stats.index), fill_value=0).values,
+    "New Sum Profit": new_city_stats["New_Sum_Profit"].reindex(previous_city_stats.index.union(new_city_stats.index), fill_value=0).values,
+    "Previous Call Count": previous_city_stats["Previous_Call_Count"].reindex(previous_city_stats.index.union(new_city_stats.index), fill_value=0).values,
+    "New Call Count": new_city_stats["New_Call_Count"].reindex(previous_city_stats.index.union(new_city_stats.index), fill_value=0).values
+})
+
+# Ensure consistent indexing for limited previous and new data
+limited_previous_city_stats = limited_previous_reports_df.groupby("location").agg(
+    Limited_Previous_Sum_Profit=("call_profit", "sum"),
+    Limited_Previous_Call_Count=("call_id", "size")
+)
+
+# Align limited previous and new data on location (city) to create the comparison DataFrame
+limited_city_profit_and_count_comparison = pd.DataFrame({
+    "City": limited_previous_city_stats.index.union(new_city_stats.index),
+    "Limited Previous Sum Profit": limited_previous_city_stats["Limited_Previous_Sum_Profit"].reindex(limited_previous_city_stats.index.union(new_city_stats.index), fill_value=0).values,
+    "New Sum Profit": new_city_stats["New_Sum_Profit"].reindex(limited_previous_city_stats.index.union(new_city_stats.index), fill_value=0).values,
+    "Limited Previous Call Count": limited_previous_city_stats["Limited_Previous_Call_Count"].reindex(limited_previous_city_stats.index.union(new_city_stats.index), fill_value=0).values,
+    "New Call Count": new_city_stats["New_Call_Count"].reindex(limited_previous_city_stats.index.union(new_city_stats.index), fill_value=0).values
+})
+
+print# Print city profit and call counts for verification
+print("----------------- - Previous:")
+print(city_profit_and_count_previous)
+print(city_profit_and_count_comparison)
+print("\n---------------- - New:")
+print(city_profit_and_count_new)
+print(limited_city_profit_and_count_comparison)
 # Setup Dash and Plotly Visualizations
 app = dash.Dash(__name__)
 
