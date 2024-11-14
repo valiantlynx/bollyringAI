@@ -75,7 +75,6 @@ excluded_workers_df = pd.read_csv('excluded_workers_report.csv')
 # Create a set of excluded worker IDs for easy lookup
 excluded_worker_ids = set(excluded_workers_df['worker_id'])
 
-# Adjusted calculate_metrics function
 def calculate_metrics(report_df, workers_df, adjust_for_excluded=False, excluded_worker_ids=None):
     report_df = report_df.merge(workers_df, on='worker_id', how='left')
     
@@ -88,12 +87,21 @@ def calculate_metrics(report_df, workers_df, adjust_for_excluded=False, excluded
     else:
         workers_df['adjusted_salary'] = workers_df['base_salary']
     
-    # Calculate metrics with or without adjusted salaries
+    # Calculate Sum Profit, Average Call Time, Average Recommendation, and Cost
+    sum_profit = report_df['call_profit'].sum()
+    average_call_time = report_df['call_time'].mean()
+    average_recommendation = report_df['likely_to_recommend'].mean()
+    cost = workers_df['adjusted_salary'].sum()
+    
+    # Calculate Profit as Sum Profit - Cost
+    profit = sum_profit - cost
+
     return {
-        "Sum Profit": report_df['call_profit'].sum(),
-        "Average Call Time": report_df['call_time'].mean(),
-        "Average Recommendation": report_df['likely_to_recommend'].mean(),
-        "Cost": workers_df['adjusted_salary'].sum()
+        "Sum Profit": sum_profit,
+        "Average Call Time": average_call_time,
+        "Average Recommendation": average_recommendation,
+        "Cost": cost,
+        "Profit": profit
     }
 
 # Calculate metrics for the previous, week 1, week 2, and new reports
@@ -129,34 +137,61 @@ city_profit_and_count_new = new_reports_df.groupby('location').agg(
     call_count=('call_id', 'count')
 )
 
-# Comparison DataFrame
+# Create the comparison DataFrame
 comparison_df = pd.DataFrame({
-    "Metric": ["Sum Profit", "Average Call Time", "Average Recommendation", "Cost"],
-    "Previous": [previous_metrics["Sum Profit"], previous_metrics["Average Call Time"], previous_metrics["Average Recommendation"], previous_metrics["Cost"]],
-    "Week 1": [week_1_metrics["Sum Profit"], week_1_metrics["Average Call Time"], week_1_metrics["Average Recommendation"], week_1_metrics["Cost"]],
-    "Week 2": [week_2_metrics["Sum Profit"], week_2_metrics["Average Call Time"], week_2_metrics["Average Recommendation"], week_2_metrics["Cost"]],
-    "New": [new_metrics["Sum Profit"], new_metrics["Average Call Time"], new_metrics["Average Recommendation"], new_metrics["Cost"]],
+    "Metric": ["Sum Profit", "Average Call Time", "Average Recommendation", "Cost", "Profit"],
+    "Previous": [previous_metrics["Sum Profit"], previous_metrics["Average Call Time"], previous_metrics["Average Recommendation"], previous_metrics["Cost"], previous_metrics["Profit"]],
+    "Week 1": [week_1_metrics["Sum Profit"], week_1_metrics["Average Call Time"], week_1_metrics["Average Recommendation"], week_1_metrics["Cost"], week_1_metrics["Profit"]],
+    "Week 2": [week_2_metrics["Sum Profit"], week_2_metrics["Average Call Time"], week_2_metrics["Average Recommendation"], week_2_metrics["Cost"], week_2_metrics["Profit"]],
+    "New": [new_metrics["Sum Profit"], new_metrics["Average Call Time"], new_metrics["Average Recommendation"], new_metrics["Cost"], new_metrics["Profit"]],
     "Change (%)": [
         (new_metrics["Sum Profit"] - previous_metrics["Sum Profit"]) / previous_metrics["Sum Profit"] * 100 if previous_metrics["Sum Profit"] else None,
         (new_metrics["Average Call Time"] - previous_metrics["Average Call Time"]) / previous_metrics["Average Call Time"] * 100 if previous_metrics["Average Call Time"] else None,
         (new_metrics["Average Recommendation"] - previous_metrics["Average Recommendation"]) / previous_metrics["Average Recommendation"] * 100 if previous_metrics["Average Recommendation"] else None,
-        (new_metrics["Cost"] - previous_metrics["Cost"]) / previous_metrics["Cost"] * 100 if previous_metrics["Cost"] else None
+        (new_metrics["Cost"] - previous_metrics["Cost"]) / previous_metrics["Cost"] * 100 if previous_metrics["Cost"] else None,
+        (new_metrics["Profit"] - previous_metrics["Profit"]) / previous_metrics["Profit"] * 100 if previous_metrics["Profit"] else None
     ]
 })
 
 limited_comparison_df = pd.DataFrame({
-    "Metric": ["Sum Profit", "Average Call Time", "Average Recommendation", "Cost"],
-    "Limited Previous": [limited_previous_metrics["Sum Profit"], limited_previous_metrics["Average Call Time"], limited_previous_metrics["Average Recommendation"], limited_previous_metrics["Cost"]],
-    "Week 1": [limited_week1_metrics["Sum Profit"], limited_week1_metrics["Average Call Time"], limited_week1_metrics["Average Recommendation"], limited_week1_metrics["Cost"]],
-    "Week 2": [limited_week2_metrics["Sum Profit"], limited_week2_metrics["Average Call Time"], limited_week2_metrics["Average Recommendation"], limited_week2_metrics["Cost"]],
-    "New": [new_metrics["Sum Profit"], new_metrics["Average Call Time"], new_metrics["Average Recommendation"], new_metrics["Cost"]],
-    "Change (%)": [ # TODO: recalculate this to take into account hte three reports
+    "Metric": ["Sum Profit", "Average Call Time", "Average Recommendation", "Cost", "Profit"],
+    "Limited Previous": [
+        limited_previous_metrics["Sum Profit"], 
+        limited_previous_metrics["Average Call Time"], 
+        limited_previous_metrics["Average Recommendation"], 
+        limited_previous_metrics["Cost"], 
+        limited_previous_metrics["Sum Profit"] - limited_previous_metrics["Cost"]  # Profit calculation for Limited Previous
+    ],
+    "Week 1": [
+        limited_week1_metrics["Sum Profit"], 
+        limited_week1_metrics["Average Call Time"], 
+        limited_week1_metrics["Average Recommendation"], 
+        limited_week1_metrics["Cost"], 
+        limited_week1_metrics["Sum Profit"] - limited_week1_metrics["Cost"]  # Profit calculation for Week 1
+    ],
+    "Week 2": [
+        limited_week2_metrics["Sum Profit"], 
+        limited_week2_metrics["Average Call Time"], 
+        limited_week2_metrics["Average Recommendation"], 
+        limited_week2_metrics["Cost"], 
+        limited_week2_metrics["Sum Profit"] - limited_week2_metrics["Cost"]  # Profit calculation for Week 2
+    ],
+    "New": [
+        new_metrics["Sum Profit"], 
+        new_metrics["Average Call Time"], 
+        new_metrics["Average Recommendation"], 
+        new_metrics["Cost"], 
+        new_metrics["Sum Profit"] - new_metrics["Cost"]  # Profit calculation for New
+    ],
+    "Change (%)": [
         (new_metrics["Sum Profit"] - limited_previous_metrics["Sum Profit"]) / limited_previous_metrics["Sum Profit"] * 100 if limited_previous_metrics["Sum Profit"] else None,
         (new_metrics["Average Call Time"] - limited_previous_metrics["Average Call Time"]) / limited_previous_metrics["Average Call Time"] * 100 if limited_previous_metrics["Average Call Time"] else None,
         (new_metrics["Average Recommendation"] - limited_previous_metrics["Average Recommendation"]) / limited_previous_metrics["Average Recommendation"] * 100 if limited_previous_metrics["Average Recommendation"] else None,
-        (new_metrics["Cost"] - limited_previous_metrics["Cost"]) / limited_previous_metrics["Cost"] * 100 if limited_previous_metrics["Cost"] else None
+        (new_metrics["Cost"] - limited_previous_metrics["Cost"]) / limited_previous_metrics["Cost"] * 100 if limited_previous_metrics["Cost"] else None,
+        ((new_metrics["Sum Profit"] - new_metrics["Cost"]) - (limited_previous_metrics["Sum Profit"] - limited_previous_metrics["Cost"])) / (limited_previous_metrics["Sum Profit"] - limited_previous_metrics["Cost"]) * 100 if limited_previous_metrics["Sum Profit"] and limited_previous_metrics["Cost"] else None
     ]
 })
+
 
 # Ensure consistent indexing for previous and new data
 previous_city_stats = previous_reports_df.groupby("location").agg(
@@ -271,6 +306,7 @@ app.layout = html.Div([
     html.Div([
         dcc.Graph(id='profit_comparison'),
         dcc.Graph(id='cost_comparison'),
+        dcc.Graph(id='single_profit_comparison'),
         dcc.Graph(id='call_time_comparison'),
         dcc.Graph(id='recommendation_comparison')
     ]),
@@ -293,6 +329,7 @@ app.layout = html.Div([
     [
         Output('profit_comparison', 'figure'),
         Output('cost_comparison', 'figure'),
+        Output('single_profit_comparison', 'figure'),
         Output('call_time_comparison', 'figure'),
         Output('recommendation_comparison', 'figure'),
         Output('city_profit_comparison', 'figure'),
@@ -321,7 +358,13 @@ def update_comparison_graphs(data):
         barmode='group',
         title="Cost Comparison"
     )
-    
+    fig_single_profit = px.bar(
+        comparison_df[comparison_df["Metric"] == "Profit"],
+        x="Metric",
+        y=["Previous", "Week 1", "Week 2", "New"],
+        barmode='group',
+        title="Profit Difference Comparison"
+    )
     # Call Time Comparison
     fig_call_time = px.bar(
         comparison_df[comparison_df["Metric"] == "Average Call Time"],
@@ -550,7 +593,7 @@ def update_comparison_graphs(data):
         barmode="group"
     )
 
-    return fig_profit, fig_cost, fig_call_time, fig_recommendation, fig_city_profit, fig_city_call_count, fig_limited_city_profit, fig_limited_city_call_count, fig, fig_limited
+    return fig_profit, fig_cost, fig_single_profit, fig_call_time, fig_recommendation, fig_city_profit, fig_city_call_count, fig_limited_city_profit, fig_limited_city_call_count, fig, fig_limited
 
 # Run the Dash app
 if __name__ == '__main__':
