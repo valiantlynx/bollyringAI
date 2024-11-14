@@ -310,141 +310,139 @@ def calculate_priority_order(worker_metrics, technical_problems):
 
 def assign_calls_efficiently(calls_df, workers_df, priority_order_df, worker_rankings, excluded_workers=[]):
     """
-    Assign all calls efficiently while ensuring each worker gets at least MIN_CALL_LIMIT_PER_WORKER calls.
-    Ensure calls are only assigned to workers in the same location and not in excluded_workers.
+    Assign calls efficiently while prioritizing hard and high-value calls first.
+    Ensures each worker gets at least MIN_CALL_LIMIT_PER_WORKER calls.
     """
     schedule = defaultdict(list)
-
-    # Initialize worker call counts locally within the function
     worker_call_counts = defaultdict(int)
-      # Take only top 120,000 calls
-    calls_df = calls_df[:int(
-        float((120000 * 100 / 260000)/100)* len(calls_df)) ]
+
+    # Define difficulty scores
+    difficulties = {'hard': 3, 'medium': 2, 'easy': 1}
+    
+    # Get problem priority scores from priority_order_df
+    known_problems = set(priority_order_df['technical_problem'])
+    max_priority = len(priority_order_df)
+    problem_priority = {}
+    
+    # Assign priorities to known problems
+    for idx, row in priority_order_df.iterrows():
+        problem_priority[row['technical_problem']] = max_priority - idx
+    
+    # Assign lowest priority to unknown problems
+    for problem in calls_df['technical_problem'].unique():
+        if problem not in known_problems:
+            problem_priority[problem] = 0
+            logging.warning(f"Unknown problem type encountered: {problem}")
+
+    # Take only top 120,000 calls proportionally
+    total_calls_limit = int(float((120000 * 100 / 260000)/100) * len(calls_df))
+    
+    # Calculate call scores and create prioritized list
+    call_scores = []
+    for _, row in calls_df.iterrows():
+        call_score = (
+            difficulties.get(row['difficulty'], 1) * 1000 +  # Difficulty is primary factor
+            problem_priority.get(row['technical_problem'], 0) * 100  # Problem type is secondary factor
+        )
+        call_scores.append((call_score, row.to_dict()))
+    
+    # Sort calls by score in descending order
+    call_scores.sort(key=lambda x: x[0], reverse=True)
+    
+    # Take only top calls based on the calculated limit
+    prioritized_calls = call_scores[:total_calls_limit]
+    
+    # Convert back to DataFrame for processing
+    prioritized_df = pd.DataFrame([call[1] for call in prioritized_calls])
     
     # Organize calls by location
     calls_by_location = defaultdict(list)
-    for _, call in calls_df.iterrows():
+    for _, call in prioritized_df.iterrows():
         calls_by_location[call['location']].append(call.to_dict())
-
+    
     # Phase 1: Assign minimum required calls to each worker within their location
     logging.info("Phase 1: Assigning minimum required calls to each worker...")
     for location, calls in calls_by_location.items():
         workers_in_loc = [w for w in workers_df['worker_id']
-                          if (location in workers_df.loc[workers_df['worker_id'] == w, 'locations'].values[0])
-                          and (w not in excluded_workers)]
-        num_workers = len(workers_in_loc)
-        if num_workers == 0:
+                         if (location in workers_df.loc[workers_df['worker_id'] == w, 'locations'].values[0])
+                         and (w not in excluded_workers)]
+        
+        if not workers_in_loc:
             logging.warning(f"No workers available for location '{location}'. Skipping all calls in this location.")
             continue
-
-        # Shuffle workers to ensure random distribution
-        random.shuffle(workers_in_loc)
-
-        # Calculate required calls for this location
-        required_calls = num_workers * MIN_CALL_LIMIT_PER_WORKER
+            
+        # Calculate minimum calls requirement
+        required_calls = len(workers_in_loc) * MIN_CALL_LIMIT_PER_WORKER
         available_calls = len(calls)
-
-        if available_calls < required_calls:
-            # Adjust the minimum calls if not enough calls are available
-            adjusted_min = max(1, available_calls // num_workers) if num_workers else 0
-            logging.warning(
-                f"Not enough calls in location '{location}' to assign {MIN_CALL_LIMIT_PER_WORKER} calls per worker. Adjusting minimum to {adjusted_min}.")
-            min_calls = adjusted_min
-        else:
-            min_calls = MIN_CALL_LIMIT_PER_WORKER
-
-        # Assign min_calls using round-robin
+        min_calls = min(MIN_CALL_LIMIT_PER_WORKER, max(1, available_calls // len(workers_in_loc)))
+        
+        # Assign minimum calls using ranked workers
         for _ in range(min_calls):
             for worker in workers_in_loc:
                 if not calls:
                     break
-                # Assign call only if worker hasn't reached MAX_CALL_LIMIT_PER_WORKER
                 if worker_call_counts[worker] < MAX_CALL_LIMIT_PER_WORKER:
                     call = calls.pop(0)
                     schedule[worker].append(call['call_id'])
                     worker_call_counts[worker] += 1
-
-    # Phase 2: Assign remaining calls based on priority within each location
-    logging.info("Phase 2: Assigning remaining calls based on priority...")
-    unassigned_calls_summary = defaultdict(int)
-
+    
+    # Phase 2: Assign remaining calls based on priority and worker ranking
+    logging.info("Phase 2: Assigning remaining prioritized calls...")
     for location, calls in calls_by_location.items():
         workers_in_loc = [w for w in workers_df['worker_id']
-                          if (location in workers_df.loc[workers_df['worker_id'] == w, 'locations'].values[0])
-                          and (w not in excluded_workers)]
-        num_workers = len(workers_in_loc)
-        if num_workers == 0:
-            continue
-
-        # Fetch remaining calls for this location
-        remaining_calls = calls.copy()
-
-        for call in remaining_calls:
+                         if (location in workers_df.loc[workers_df['worker_id'] == w, 'locations'].values[0])
+                         and (w not in excluded_workers)]
+        
+        for call in calls:
             problem = call['technical_problem']
             call_id = call['call_id']
-
+            
             # Get ranked workers for this problem and location
+            ranked_workers = []
             if problem in worker_rankings:
-                ranked_workers = [w for w in worker_rankings[problem].get(location, []) if
-                                  w in workers_in_loc and worker_call_counts[w] < MAX_CALL_LIMIT_PER_WORKER]
-            else:
-                # If problem type not known, use all possible workers in location who haven't reached max limit
-                ranked_workers = [w for w in workers_in_loc if worker_call_counts[w] < MAX_CALL_LIMIT_PER_WORKER]
-
+                ranked_workers = [w for w in worker_rankings[problem].get(location, [])
+                                if w in workers_in_loc and worker_call_counts[w] < MAX_CALL_LIMIT_PER_WORKER]
+            
             if not ranked_workers:
-                # No eligible workers for this call
-                unassigned_calls_summary[location] += 1
+                # Use any available worker in location if no ranked workers found
+                ranked_workers = [w for w in workers_in_loc if worker_call_counts[w] < MAX_CALL_LIMIT_PER_WORKER]
+            
+            if not ranked_workers:
                 continue
-
-            # Prioritize workers with the least calls
+                
+            # Find worker with least calls among ranked workers
             min_calls = min(worker_call_counts[w] for w in ranked_workers)
             eligible_workers = [w for w in ranked_workers if worker_call_counts[w] == min_calls]
-
+            
             # Randomly select one worker among eligible workers
             best_worker = random.choice(eligible_workers)
             schedule[best_worker].append(call_id)
             worker_call_counts[best_worker] += 1
 
-    # Log summary of unassigned calls
-    for location, count in unassigned_calls_summary.items():
-        logging.warning(
-            f"No eligible workers available for {count} call(s) in location '{location}'. Skipping these calls.")
-
-    # Log assignment statistics per location
+    # Log assignment statistics
+    logging.info("Assignment Statistics:")
     for location in calls_by_location.keys():
         workers_in_loc = [w for w in workers_df['worker_id']
-                          if (location in workers_df.loc[workers_df['worker_id'] == w, 'locations'].values[0])
-                          and (w not in excluded_workers)]
-        assigned_calls = sum([len(calls) for wid, calls in schedule.items() if
-                              wid in workers_in_loc])
+                         if (location in workers_df.loc[workers_df['worker_id'] == w, 'locations'].values[0])
+                         and (w not in excluded_workers)]
+        assigned_calls = sum(len(calls) for wid, calls in schedule.items() if wid in workers_in_loc)
         logging.info(f"Location '{location}': Total calls assigned: {assigned_calls}")
-        logging.info(
-            f"Location '{location}': Total workers assigned: {len([w for w in workers_in_loc if w in schedule])}")
+        
         if workers_in_loc:
             calls_per_worker = [len(calls) for w, calls in schedule.items() if w in workers_in_loc]
             if calls_per_worker:
-                logging.info(
-                    f"Location '{location}': Calls per worker (min/max): {min(calls_per_worker)}/{max(calls_per_worker)}")
-            else:
-                logging.info(f"Location '{location}': No calls assigned.")
-        else:
-            logging.info(f"Location '{location}': No workers available.")
+                logging.info(f"Location '{location}': Calls per worker (min/max): {min(calls_per_worker)}/{max(calls_per_worker)}")
 
+    # Log difficulty distribution
     logging.info("Calls by difficulty:")
     difficulty_counts = defaultdict(int)
-    for _, call in calls_df.iterrows():
+    for _, call in prioritized_df.iterrows():
         difficulty = call.get('difficulty', 'unknown')
         difficulty_counts[difficulty] += 1
     for diff, count in difficulty_counts.items():
         logging.info(f"{diff}: {count}")
 
-    # Calculate total assigned calls across all locations
-    total_assigned_calls = sum(len(calls) for calls in schedule.values())
-    logging.info(f"Total calls assigned across all locations: {total_assigned_calls}")
-
     return schedule
-
-
 def process_call_files(calls_directory, worker_metrics, technical_problems, excluded_workers, excluded_workers_info):
     global total_calls_processed
     """Process all call files in the directory."""
