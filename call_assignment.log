@@ -1,0 +1,50 @@
+2024-11-14 01:52:32,821 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 6.
+2024-11-14 01:52:34,879 - WARNING - No eligible workers available for 10863 call(s) in location 'hyderabad'. Skipping these calls.
+2024-11-14 01:52:52,247 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 7.
+2024-11-14 01:52:54,418 - WARNING - No eligible workers available for 10563 call(s) in location 'hyderabad'. Skipping these calls.
+2024-11-14 01:53:14,567 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 7.
+2024-11-14 01:53:16,681 - WARNING - No eligible workers available for 10989 call(s) in location 'hyderabad'. Skipping these calls.
+2024-11-14 01:53:37,383 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 7.
+2024-11-14 01:53:39,987 - WARNING - No eligible workers available for 10531 call(s) in location 'hyderabad'. Skipping these calls.
+2024-11-14 01:54:01,011 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 7.
+2024-11-14 01:54:03,934 - WARNING - No eligible workers available for 11285 call(s) in location 'hyderabad'. Skipping these calls.
+2024-11-14 01:55:06,122 - ERROR - Error during call assignment for calls_31.json: unhashable type: 'slice'
+2024-11-14 01:55:07,491 - ERROR - Error during call assignment for calls_32.json: unhashable type: 'slice'
+2024-11-14 01:55:10,768 - ERROR - Error during call assignment for calls_33.json: unhashable type: 'slice'
+2024-11-14 01:55:14,333 - ERROR - Error during call assignment for calls_34.json: unhashable type: 'slice'
+2024-11-14 01:55:16,351 - ERROR - Error during call assignment for calls_35.json: unhashable type: 'slice'
+2024-11-14 01:55:33,564 - ERROR - Error during call assignment for calls_31.json: 'dict_items' object is not subscriptable
+2024-11-14 01:55:35,182 - ERROR - Error during call assignment for calls_32.json: 'dict_items' object is not subscriptable
+2024-11-14 01:55:36,833 - ERROR - Error during call assignment for calls_33.json: 'dict_items' object is not subscriptable
+2024-11-14 01:57:19,900 - ERROR - Error during call assignment for calls_31.json: 'dict_items' object is not subscriptable
+2024-11-14 01:57:21,148 - ERROR - Error during call assignment for calls_32.json: 'dict_items' object is not subscriptable
+2024-11-14 01:57:22,299 - ERROR - Error during call assignment for calls_33.json: 'dict_items' object is not subscriptable
+2024-11-14 01:57:23,048 - ERROR - Error during call assignment for calls_34.json: 'dict_items' object is not subscriptable
+2024-11-14 01:57:24,192 - ERROR - Error during call assignment for calls_35.json: 'dict_items' object is not subscriptable
+2024-11-14 01:57:25,326 - ERROR - Error during call assignment for calls_36.json: 'dict_items' object is not subscriptable
+2024-11-14 01:57:26,067 - ERROR - Error during call assignment for calls_37.json: 'dict_items' object is not subscriptable
+2024-11-14 01:57:27,207 - ERROR - Error during call assignment for calls_38.json: 'dict_items' object is not subscriptable
+2024-11-14 01:57:28,403 - ERROR - Error during call assignment for calls_39.json: 'dict_items' object is not subscriptable
+2024-11-14 01:57:30,039 - ERROR - Error during call assignment for calls_40.json: 'dict_items' object is not subscriptable
+2024-11-14 01:58:37,575 - ERROR - Error during call assignment for calls_31.json: 'dict_items' object is not subscriptable
+2024-11-14 01:58:39,168 - ERROR - Error during call assignment for calls_32.json: 'dict_items' object is not subscriptable
+2024-11-14 01:58:40,791 - ERROR - Error during call assignment for calls_33.json: 'dict_items' object is not subscriptable
+2024-11-14 01:59:37,591 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 6.
+2024-11-14 01:59:40,031 - WARNING - No eligible workers available for 10863 call(s) in location 'hyderabad'. Skipping these calls.
+2024-11-14 02:00:02,458 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 16.
+2024-11-14 02:00:07,610 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 6.
+2024-11-14 02:00:11,409 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 16.
+2024-11-14 02:00:16,021 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 7.
+2024-11-14 02:00:21,828 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 16.
+2024-11-14 02:00:25,674 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 7.
+2024-11-14 02:00:28,871 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 15.
+2024-11-14 02:00:31,705 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 7.
+2024-11-14 02:00:35,193 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 16.
+2024-11-14 02:00:37,300 - WARNING - Not enough calls in location 'mumbai' to assign 20 calls per worker. Adjusting minimum to 7.
+2024-11-14 02:34:48,565 - ERROR - Failed to load workers data: [Errno 2] No such file or directory: 'worker_performance.json'
+2024-11-14 02:34:48,568 - ERROR - Workers dataframe is empty. Exiting the script.
+2024-11-14 02:36:24,924 - WARNING - Not enough calls in location 'mumbai' to assign 22 calls per worker. Adjusting minimum to 16.
+2024-11-14 02:36:38,788 - WARNING - Not enough calls in location 'mumbai' to assign 22 calls per worker. Adjusting minimum to 16.
+2024-11-14 02:36:50,767 - WARNING - Not enough calls in location 'mumbai' to assign 22 calls per worker. Adjusting minimum to 16.
+2024-11-14 02:37:03,217 - WARNING - Not enough calls in location 'mumbai' to assign 22 calls per worker. Adjusting minimum to 15.
+2024-11-14 02:37:14,756 - WARNING - Not enough calls in location 'mumbai' to assign 22 calls per worker. Adjusting minimum to 16.

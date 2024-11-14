@@ -81,10 +81,10 @@ def check_call_assignments(schedule_file, calls_file, worker_locations, output_f
 
 
 # Define paths to your JSON files
-call_reports_path = 'call_reports'  # e.g., 'extracted/previous_reports'
-calls_path = 'calls'  # e.g., 'extracted/previous_calls'
-schedule_file = 'call_schedule_Uke2/call_schedule_22.json'  # e.g., 'extracted/new_schedule.json'
-calls_file = 'Calls_new/calls_22.json'  # e.g., 'extracted/future_calls/calls_11.json'
+call_reports_path = 'extracted/previous_reports'  # e.g., 'extracted/previous_reports'
+calls_path = 'Week3/calls'  # e.g., 'extracted/previous_calls'
+schedule_file = 'Week3/call_schedules/call_schedule_calls_32.json'  # e.g., 'extracted/new_schedule.json'
+calls_file = 'Week3/calls/calls_32.json'  # e.g., 'extracted/future_calls/calls_11.json'
 output_file = 'output_results.txt'  # Path for the output file
 
 # Load worker locations based on historical data

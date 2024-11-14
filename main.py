@@ -8,11 +8,11 @@ import json
 import glob
 
 # Load workers data and format correctly
-workers_df = pd.read_json('Schedule1/extracted/workers.json').transpose().reset_index()
+workers_df = pd.read_json('extracted/workers.json').transpose().reset_index()
 workers_df.columns = ['worker_id', 'name', 'base_salary']
 
 # Load prices.json as a dictionary and convert to DataFrame
-with open('Schedule1/prices.json') as f:
+with open('Week1/prices.json') as f:
     prices_data = json.load(f)
 prices_df = pd.DataFrame(list(prices_data.items()), columns=['technical_problem', 'price'])
 
@@ -30,18 +30,18 @@ def load_and_flatten_data(directory, key_field):
     return pd.DataFrame(records)
 
 # Load feature calls, previous calls, previous reports, and schedules
-feature_calls_df = load_and_flatten_data('ikkeimal_calls/calls', 'call_id')
-previous_calls_df = load_and_flatten_data('Schedule1/extracted/feature_calls', 'call_id')
+feature_calls_df = load_and_flatten_data('Week3/calls', 'call_id')
+previous_calls_df = load_and_flatten_data('Week2/calls', 'call_id')
 
 # Load previous reports
 reports_records = []
-for file_path in glob.glob('Schedule1/ikkeheltimal_call_reports_11_20/future_call_reports/*.json'):
+for file_path in glob.glob('Week2/call_report_week2/*.json'):
     reports_records.extend(pd.read_json(file_path).to_dict(orient='records'))
 reports_df = pd.DataFrame(reports_records)
 
 # Load previous schedules
 schedule_records = []
-for file_path in glob.glob('Schedule1/extracted/feature_schedules/*.json'):
+for file_path in glob.glob('Week2/call_schedule_Uke2/*.json'):
     with open(file_path) as f:
         schedules_data = json.load(f)
     for worker_id, calls in schedules_data.items():
@@ -51,7 +51,7 @@ schedules_df = pd.DataFrame(schedule_records)
 # Combine prices with calls based on technical problems
 feature_calls_df = feature_calls_df.merge(prices_df, on='technical_problem', how='left')
 previous_calls_df = previous_calls_df.merge(prices_df, on='technical_problem', how='left')
-print(feature_calls_df.columns)
+previous_calls_df = previous_calls_df.merge(reports_df, on='call_id', how='left').reset_index()
 # Ensure call_time is available by adding a dummy column if missing
 if 'call_time' not in feature_calls_df.columns:
     feature_calls_df['call_time'] = np.nan
@@ -99,7 +99,6 @@ app.layout = html.Div([
     dcc.Graph(id='commission_vs_profitability'),
     dcc.Graph(id='recommendation_vs_salary'),
     dcc.Graph(id='location_vs_problem'),
-    dcc.Graph(id='call_volume_time_series'),
     dcc.Graph(id='call_load_vs_performance'),
     dcc.Graph(id='problem_type_vs_call_time'),
     dcc.Graph(id='commission_distribution'),
@@ -115,7 +114,6 @@ app.layout = html.Div([
         Output('commission_vs_profitability', 'figure'),
         Output('recommendation_vs_salary', 'figure'),
         Output('location_vs_problem', 'figure'),
-        Output('call_volume_time_series', 'figure'),
         Output('call_load_vs_performance', 'figure'),
         Output('problem_type_vs_call_time', 'figure'),
         Output('commission_distribution', 'figure'),
@@ -186,22 +184,6 @@ def update_graphs(selected_difficulty, selected_worker):
         labels={'location': 'Location', 'technical_problem': 'Technical Problem'},
         barmode='stack'
     )
-    
-    # Time Series of Call Volume
-    if 'date' in feature_calls_df.columns:
-        feature_calls_df['date'] = pd.to_datetime(feature_calls_df['date']).dt.date
-
-        # Group by 'date' (now containing only date component) and count call volume
-        call_volume_df = feature_calls_df.groupby('date').size().reset_index(name='call_volume')
-        fig5 = px.line(
-            call_volume_df,
-            x='date',
-            y='call_volume',
-            title='Call Volume Over Time',
-            labels={'date': 'Date', 'call_volume': 'Call Volume'}
-        )
-    else:
-        fig5 = px.line(title="No date information available for Call Volume")
 
     # Worker Call Load vs Performance
     worker_performance = reports_df.groupby('worker_id').agg(
@@ -215,20 +197,16 @@ def update_graphs(selected_difficulty, selected_worker):
         title='Worker Call Load vs Average Profit',
         labels={'call_count': 'Number of Calls', 'avg_profit': 'Average Profit per Call'}
     )
-    
     # Problem Type vs Average Call Time
-    if 'call_time' in feature_calls_df.columns:
-        avg_call_time = feature_calls_df.groupby('technical_problem')['call_time'].mean().reset_index()
-        print(feature_calls_df['call_time'].head())
-        fig7 = px.bar(
-            avg_call_time,
-            x='technical_problem',
-            y='call_time',
-            title='Average Call Time by Technical Problem Type',
-            labels={'technical_problem': 'Technical Problem', 'call_time': 'Average Call Time'}
-        )
-    else:
-        fig7 = px.bar(title="No call time information available for Problem Type")
+    avg_call_time = previous_calls_df.groupby('technical_problem')['call_time'].mean().reset_index()
+    
+    fig7 = px.bar(
+        avg_call_time,
+        x='technical_problem',
+        y='call_time',
+        title='Average Call Time by Technical Problem Type',
+        labels={'technical_problem': 'Technical Problem', 'call_time': 'Average Call Time'}
+    )
 
     # Commission Distribution Across Difficulty Levels
     fig8 = px.box(
@@ -239,7 +217,7 @@ def update_graphs(selected_difficulty, selected_worker):
         labels={'difficulty': 'Difficulty Level', 'commission': 'Commission'}
     )
 
-    return total_calls, total_workers, average_profit, fig_location, fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8
+    return total_calls, total_workers, average_profit, fig_location, fig1, fig2, fig3, fig4, fig6, fig7, fig8
 
 # Run the Dash app
 if __name__ == '__main__':
