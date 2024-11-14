@@ -335,7 +335,7 @@ def assign_calls_efficiently(calls_df, workers_df, priority_order_df, worker_ran
             logging.warning(f"Unknown problem type encountered: {problem}")
 
     # Take only top 120,000 calls proportionally
-    total_calls_limit = int(float((120000 * 100 / 260000)/100) * len(calls_df))
+    total_calls_limit = -1 # int(float((120000 * 100 / 260000)/100) * len(calls_df))
     
     # Calculate call scores and create prioritized list
     call_scores = []
