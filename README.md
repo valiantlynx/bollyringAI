@@ -14,3 +14,4 @@ jupyter
  - install the requirements
  - run the different dashboards and scripts
 
+## !ps- you might need the change the paths around according to your goal
